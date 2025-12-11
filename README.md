@@ -225,18 +225,7 @@ EMBEDDING_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
 JINA_BASE_MODEL=jinaai/jina-embeddings-v2-base-en
 ```
 
-### 训练参数
 
-训练参数可在 `config.py` 中配置，或通过命令行参数传递：
-
-```bash
-python main.py train_jina \
-    --batch-size 4 \
-    --epochs 2 \
-    --learning-rate 5e-6 \
-    --gradient-accumulation-steps 8 \
-    --max-length 512
-```
 
 ## 📝 注意事项
 
