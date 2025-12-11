@@ -32,6 +32,10 @@ data/scienceqa/images/
 data/vectordb/
 *.json.bak
 
+# Training data (large files, should be generated locally)
+data/training/*.json
+!data/training/.gitkeep
+
 # Models (keep structure but ignore weights)
 models/**/*.bin
 models/**/*.safetensors
