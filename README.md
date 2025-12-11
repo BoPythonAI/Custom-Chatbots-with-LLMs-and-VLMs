@@ -265,6 +265,5 @@ python main.py train_jina \
 ## 📚 相关文档
 
 - [完整项目报告](FINAL_PROJECT_REPORT.md)
-- [训练和评估指南](docs/TRAINING_GUIDE.md) (待添加)
-- [API 文档](docs/API.md) (待添加)
+
 
