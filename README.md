@@ -250,8 +250,5 @@ JINA_BASE_MODEL=jinaai/jina-embeddings-v2-base-en
 - [LangChain](https://www.langchain.com/)
 - [ChromaDB](https://www.trychroma.com/)
 
-## 📚 相关文档
-
-- [完整项目报告](FINAL_PROJECT_REPORT.md)
 
 
