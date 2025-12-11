@@ -1,0 +1,32 @@
+{
+  "test_split": "test",
+  "top_k": 5,
+  "retrieval_quality": {
+    "models": [
+      {
+        "model_name": "jina_v2_original",
+        "total_questions": 4241,
+        "correct_retrievals": 1697,
+        "recall_at_k": 0.4001414760669653,
+        "mrr": 0.39897036862375224,
+        "top_k": 5
+      },
+      {
+        "model_name": "jina_v2_finetuned",
+        "total_questions": 4241,
+        "correct_retrievals": 1904,
+        "recall_at_k": 0.44895071917000706,
+        "mrr": 0.40276271319657314,
+        "top_k": 5
+      },
+      {
+        "model_name": "huggingface",
+        "total_questions": 4241,
+        "correct_retrievals": 1651,
+        "recall_at_k": 0.3892949775996227,
+        "mrr": 0.3866305116717755,
+        "top_k": 5
+      }
+    ]
+  }
+}

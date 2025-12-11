@@ -24,23 +24,27 @@ import config
 class ScienceQAVectorStore:
     """ScienceQA vector database management class"""
     
-    def __init__(self, persist_directory: Optional[str] = None):
+    def __init__(self, persist_directory: Optional[str] = None, embedding_model=None):
         """
         Initialize vector database
         
         Args:
             persist_directory: Persistence directory path
+            embedding_model: Custom embedding model (optional, if None uses default)
         """
         self.persist_directory = persist_directory or config.VECTOR_DB_PATH
         
         # Initialize embedding model
-        device = 'cpu'  # Use CPU to avoid CUDA compatibility issues
-        self.embeddings = HuggingFaceEmbeddings(
-            model_name=config.EMBEDDING_MODEL,
-            model_kwargs={'device': device},
-            encode_kwargs={'normalize_embeddings': True},
-            cache_folder=str(config.MODEL_DIR)
-        )
+        if embedding_model is not None:
+            self.embeddings = embedding_model
+        else:
+            device = 'cpu'  # Use CPU to avoid CUDA compatibility issues
+            self.embeddings = HuggingFaceEmbeddings(
+                model_name=config.EMBEDDING_MODEL,
+                model_kwargs={'device': device},
+                encode_kwargs={'normalize_embeddings': True},
+                cache_folder=str(config.MODEL_DIR)
+            )
         
         # Initialize text splitter
         self.text_splitter = RecursiveCharacterTextSplitter(

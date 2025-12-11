@@ -52,3 +52,31 @@ Thumbs.db
 *.temp
 *.bak
 
+# Training outputs
+training_output/**/*.bin
+training_output/**/*.safetensors
+training_output/**/*.pt
+training_output/**/*.pth
+training_output/**/checkpoint-*/
+training_output/**/training_history.json
+
+# Evaluation outputs
+eval_output/
+*.json.bak
+
+# Experiments (keep structure but ignore large files)
+experiments/*.json.bak
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json

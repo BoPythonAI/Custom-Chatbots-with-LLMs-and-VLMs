@@ -5,6 +5,7 @@ Custom Chatbots with LLMs - ScienceQA Dataset
 import sys
 import argparse
 from pathlib import Path
+from typing import List, Optional
 import json
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -192,11 +193,148 @@ def answer_question_interactive():
         print("-" * 60 + "\n")
 
 
+def prepare_training_data(multi_task: bool = True, use_hard_negatives: bool = True):
+    """Prepare training data for Jina fine-tuning
+    
+    Args:
+        multi_task: Whether to use multi-task learning (QA + QD)
+        use_hard_negatives: Whether to use hard negative mining
+    """
+    from src.training.data_preparation import TrainingDataPreparation
+    
+    preparator = TrainingDataPreparation(use_hard_negatives=use_hard_negatives)
+    
+    # Prepare training data
+    print("Preparing training data...")
+    preparator.prepare_training_data(
+        split="train",
+        multi_task=multi_task,
+        qa_weight=0.5,
+        qd_weight=0.5
+    )
+    
+    # Prepare validation data
+    print("\nPreparing validation data...")
+    try:
+        preparator.prepare_training_data(
+            split="val",
+            multi_task=multi_task,
+            qa_weight=0.5,
+            qd_weight=0.5
+        )
+        print("\n✅ Training and validation data preparation completed!")
+        if multi_task:
+            print("   Using multi-task learning: QA similarity + QD retrieval")
+        if use_hard_negatives:
+            print("   Using hard negative mining for better negative samples")
+    except Exception as e:
+        print(f"\n⚠️ Warning: Could not prepare validation data: {e}")
+        print("   Training data preparation completed, but validation data is missing.")
+        print("   You can train without validation, but validation is recommended for:")
+        print("   - Model selection (best checkpoint)")
+        print("   - Early stopping")
+        print("   - Monitoring overfitting")
+
+
+def train_jina_model(args):
+    """Train Jina v2 embedding model"""
+    import sys
+    from pathlib import Path
+    
+    # Import training script
+    train_script = Path(__file__).parent / "scripts" / "train_jina.py"
+    if not train_script.exists():
+        print("Error: Training script not found. Please use scripts/train_jina.py directly.")
+        return
+    
+    # Run training script
+    import subprocess
+    training_data = config.TRAINING_DATA_DIR / "jina_training_data_train.json"
+    
+    if not training_data.exists():
+        print(f"Error: Training data not found: {training_data}")
+        print("Please run 'python main.py prepare_data' first.")
+        return
+    
+    # Check for validation data (auto-use if exists)
+    eval_data = None
+    if hasattr(args, 'eval_data') and args.eval_data:
+        eval_data = Path(args.eval_data)
+    else:
+        # Auto-detect validation data
+        val_data = config.TRAINING_DATA_DIR / "jina_training_data_val.json"
+        if val_data.exists():
+            eval_data = val_data
+            print(f"✅ Auto-detected validation data: {eval_data}")
+        else:
+            print("⚠️ Warning: No validation data found. Training without validation.")
+            print(f"   To use validation set, run: python main.py prepare_data --split val")
+    
+    # Build command with all training parameters
+    cmd = [
+        sys.executable,
+        str(train_script),
+        "--data", str(training_data),
+    ]
+    
+    # Add optional parameters if provided
+    if hasattr(args, 'output') and args.output:
+        cmd.extend(["--output", str(args.output)])
+    else:
+        cmd.extend(["--output", str(config.TRAINING_OUTPUT_DIR / "jina_finetuned")])
+    
+    if hasattr(args, 'batch_size') and args.batch_size:
+        cmd.extend(["--batch-size", str(args.batch_size)])
+    
+    if hasattr(args, 'epochs') and args.epochs:
+        cmd.extend(["--epochs", str(args.epochs)])
+    
+    if hasattr(args, 'learning_rate') and args.learning_rate:
+        cmd.extend(["--learning-rate", str(args.learning_rate)])
+    
+    if hasattr(args, 'gradient_accumulation_steps') and args.gradient_accumulation_steps:
+        cmd.extend(["--gradient-accumulation-steps", str(args.gradient_accumulation_steps)])
+    
+    if hasattr(args, 'max_length') and args.max_length:
+        cmd.extend(["--max-length", str(args.max_length)])
+    
+    if hasattr(args, 'save_steps') and args.save_steps:
+        cmd.extend(["--save-steps", str(args.save_steps)])
+    
+    if eval_data:
+        cmd.extend(["--eval-data", str(eval_data)])
+    
+    subprocess.run(cmd)
+
+
+def compare_embeddings(evaluate_answers: bool = True, split: str = "test", top_k: int = 5, models: Optional[List[str]] = None):
+    """Compare different embedding models
+    
+    Args:
+        evaluate_answers: Whether to evaluate answer quality
+        split: Dataset split to use (train/val/test)
+        top_k: Number of top results to retrieve
+        models: List of model names to evaluate (None means evaluate all available models)
+                Options: ['jina_v2_original', 'jina_v2_finetuned', 'huggingface']
+    """
+    from src.experiments.embedding_comparison import EmbeddingComparison
+    
+    print(f"Running full embedding comparison experiment on {split} set...")
+    comparison = EmbeddingComparison()
+    results = comparison.run_full_comparison(
+        test_split=split, 
+        top_k=top_k,
+        evaluate_answers=evaluate_answers,
+        models=models
+    )
+    print("\n✅ Full comparison experiment completed!")
+
+
 def main():
     parser = argparse.ArgumentParser(description="SQA - Custom Chatbots with LLMs")
     parser.add_argument(
         "mode",
-        choices=["build_db", "process_images", "interactive"],
+        choices=["build_db", "process_images", "interactive", "prepare_data", "train_jina", "compare_embeddings"],
         help="Running mode"
     )
     parser.add_argument(
@@ -204,6 +342,85 @@ def main():
         type=int,
         default=None,
         help="Maximum number of images to process (for testing)"
+    )
+    
+    # Training parameters (only used when mode is train_jina)
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=None,
+        help=f"Batch size for training (default: {config.TRAINING_BATCH_SIZE})"
+    )
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=None,
+        help=f"Number of training epochs (default: {config.TRAINING_EPOCHS})"
+    )
+    parser.add_argument(
+        "--learning-rate",
+        type=float,
+        default=None,
+        help=f"Learning rate (default: {config.TRAINING_LEARNING_RATE})"
+    )
+    parser.add_argument(
+        "--gradient-accumulation-steps",
+        type=int,
+        default=None,
+        help=f"Gradient accumulation steps (default: {config.TRAINING_GRADIENT_ACCUMULATION_STEPS})"
+    )
+    parser.add_argument(
+        "--max-length",
+        type=int,
+        default=None,
+        help=f"Maximum sequence length (default: {config.TRAINING_MAX_LENGTH})"
+    )
+    parser.add_argument(
+        "--save-steps",
+        type=int,
+        default=None,
+        help=f"Steps between checkpoints (default: {config.TRAINING_SAVE_STEPS})"
+    )
+    parser.add_argument(
+        "--eval-data",
+        type=str,
+        default=None,
+        help="Path to evaluation data JSON file (optional)"
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Output directory for trained model (default: training_output/jina_finetuned)"
+    )
+    
+    # Comparison experiment parameters
+    parser.add_argument(
+        "--split",
+        type=str,
+        default="test",
+        choices=["train", "val", "test"],
+        help="Dataset split for comparison (default: test)"
+    )
+    parser.add_argument(
+        "--top-k",
+        type=int,
+        default=5,
+        help="Number of top results to retrieve (default: 5)"
+    )
+    parser.add_argument(
+        "--no-answer-eval",
+        action="store_true",
+        help="Skip answer quality evaluation (only evaluate retrieval quality)"
+    )
+    parser.add_argument(
+        "--models",
+        type=str,
+        nargs="+",
+        default=None,
+        choices=["jina_v2_original", "jina_v2_finetuned", "huggingface"],
+        help="Specific models to evaluate (default: all available models). "
+             "Options: jina_v2_original, jina_v2_finetuned, huggingface"
     )
     
     args = parser.parse_args()
@@ -214,6 +431,17 @@ def main():
         process_images_with_llava(max_images=args.max_images)
     elif args.mode == "interactive":
         answer_question_interactive()
+    elif args.mode == "prepare_data":
+        prepare_training_data()
+    elif args.mode == "train_jina":
+        train_jina_model(args)
+    elif args.mode == "compare_embeddings":
+        compare_embeddings(
+            evaluate_answers=not args.no_answer_eval,
+            split=args.split,
+            top_k=args.top_k,
+            models=args.models
+        )
 
 
 if __name__ == "__main__":
